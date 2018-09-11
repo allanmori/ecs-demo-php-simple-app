@@ -1,0 +1,27 @@
+version: 0.2
+
+env:
+  parameter-store:
+    SONARQUBE_TOKEN: "f295f67c571e557173b393f9778ba60e821c58f8"
+    SONARQUBE_ENDPOINT: "https://sftphub.amedigital.com:9000"
+
+phases:
+  pre_build:
+    install:
+    commands:
+      - wget https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip
+      - unzip sonar-scanner-cli-3.0.3.778-linux.zip
+      - export PATH=$PATH:./sonar-scanner-3.0.3.778-linux/bin/
+      - $(aws ecr get-login --no-include-email)
+      - TAG="$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+      - IMAGE_URI="${REPOSITORY_URI}:${TAG}"
+  build:
+    commands:
+      - docker build --tag "$IMAGE_URI" .
+      - sonar-scanner
+  post_build:
+    commands:
+      - docker push "$IMAGE_URI"
+      - printf '[{"name":"simple-app","imageUri":"%s"}]' "$IMAGE_URI" > images.json
+artifacts:
+  files: images.json
